@@ -1,8 +1,10 @@
-#!r6rs
 ;;
 ;; Boyer-Moore Search algorithim library
 ;; Copyright (C) 2016 William Ziener-Dignazio
 ;;
+#!r6rs
+
+(use-modules (srfi srfi-69))
 
 ;; Returns a sorted list of the positions of occurrences of a value in a list
 (define (occurrences2 c xs n)
@@ -43,30 +45,28 @@
 	      (sublist-from (cdr xs) (- n 1))
 	      xs)))
 
-(define (bm-search-full pattern pattern-reversed patlen position line text)
+(define (bm-search-full pattern pattern-reversed patlen position text)
   (if (null? text)
       '() (let ([char			(list-get text (- patlen 1))]
 		[mismatch-position	(first-mismatch pattern-reversed (reverse (sublist text 0 patlen)))])
 	    (if (= mismatch-position patlen) ; Match found
 		(cons position (bm-search-full pattern pattern-reversed patlen
-					       (+ position 1) 0 (cdr text))) ; Move forward one
+					       (+ position 1) (cdr text))) ; Move forward one
 		;; Now we have a problem, we found some matches but not the whole string did.
 		;; So now, if there is a match of the new char where we mismatched at, work from there.
 		(let ([char-occurrences	(reverse (occurrences char pattern))])
 		  (if (null? char-occurrences)
 		      (bm-search-full pattern pattern-reversed patlen
 				      (+ position (- patlen mismatch-position))
-				      0
 				      (sublist-from text (- patlen mismatch-position)))
 		      (if (> (car char-occurrences) (- (- patlen mismatch-position) 1))
 			  ;; The rightmost occurrence is to the right of our mismatch, this would
 			  ;; be a useless shift 'backwards', so we safely move forward 1
-			  (bm-search-full pattern pattern-reversed patlen (+ position 1) 0 (cdr text))
+			  (bm-search-full pattern pattern-reversed patlen (+ position 1) (cdr text))
 			  ;; Otherwise, we can safely shift up to that next character occurrence
 			  (let ([shift (- (- patlen (car char-occurrences)) 1)])
 			    (bm-search-full pattern pattern-reversed patlen
 					    (+ position shift)
-					    0
 					    (sublist-from text shift))))))))))
 
 (define (bm-search pattern-str text-str)
@@ -75,4 +75,3 @@
 	    (pattern-reversed	(reverse pattern))
 	    (patlen		(length pattern)))
     (bm-search-full pattern pattern-reversed patlen 0 text)))
-  
