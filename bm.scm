@@ -54,36 +54,32 @@
 	      (sublist-from (cdr xs) (- n 1))
 	      xs)))
 
-(define (bm-search-full pattern pattern-reversed patlen position text chtable)
+(define (fst p) (car p))
+(define (snd p) (cdr p))
+
+(define (bm-search-full pattern pattern-reversed patlen position text delta1-table)
   (if (null? text)
-      '() (let ([char			(list-get text (- patlen 1))]
-		[mismatch-position	(first-mismatch pattern-reversed (reverse (sublist text 0 patlen)))])
-	    (if (= (car mismatch-position) patlen) ; Match found
+      '() (let ([char	  (list-get text (- patlen 1))]
+		[mismatch (first-mismatch pattern-reversed (reverse (sublist text 0 patlen)))])
+	    (if (= (car mismatch) patlen) ; Match found
 		(cons position (bm-search-full pattern pattern-reversed patlen
-					       (+ position 1) (cdr text) chtable)) ; Move forward one
+					       (+ position 1) (cdr text) delta1-table))
 		;; Now we have a problem, we found some matches but not the whole string did.
 		;; So now, if there is a match of the new char where we mismatched at, work from there.
-		(let ([char-occurrences	(reverse (occurrences char pattern))])
-		  (if (null? char-occurrences)
-		      (bm-search-full pattern pattern-reversed patlen
-				      (+ position (- patlen (car mismatch-position)))
-				      (sublist-from text (- patlen (car mismatch-position)))
-				      chtable)
-		      (if (> (car char-occurrences) (- (- patlen (car mismatch-position)) 1))
-			  ;; The rightmost occurrence is to the right of our mismatch, this would
-			  ;; be a useless shift 'backwards', so we safely move forward 1
-			  (bm-search-full pattern pattern-reversed patlen (+ position 1) (cdr text) chtable)
-			  ;; Otherwise, we can safely shift up to that next character occurrence
-			  (let ([shift (- (- patlen (car char-occurrences)) 1)])
-			    (bm-search-full pattern pattern-reversed patlen
-					    (+ position shift)
-					    (sublist-from text shift)
-					    chtable)))))))))
+		(let ([char-occurrence (hash-table-ref/default delta1-table (snd mismatch) 0)])
+		  (if (> char-occurrence (- (- patlen (fst mismatch)) 1))
+		      ;; The rightmost occurrence is to the right of our mismatch, this would
+		      ;; be a useless shift 'backwards', so we safely move forward 1
+		      (bm-search-full pattern pattern-reversed patlen (+ position 1) (cdr text) delta1-table)
+		      ;; Otherwise, we can safely shift up to that next character occurrence
+		      (let ([shift (- (- patlen char-occurrence) 1)])
+			(bm-search-full pattern pattern-reversed patlen	(+ position shift) (sublist-from text shift) delta1-table))))))))
 
 (define (bm-search pattern-str text-str)
   (letrec* ([pattern		(string->list pattern-str)]
 	    [text		(string->list text-str)]
 	    [pattern-reversed	(reverse pattern)]
 	    [patlen		(length pattern)]
-	    [chtable 		(make-hash-table)])
-    (bm-search-full pattern pattern-reversed patlen 0 text chtable)))
+	    [delta1-table 		(make-hash-table)])
+    (map (lambda (ch) (hash-table-set! delta1-table ch (car (reverse (occurrences ch pattern))))) pattern)
+    (bm-search-full pattern pattern-reversed patlen 0 text delta1-table)))
