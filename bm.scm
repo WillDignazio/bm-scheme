@@ -58,6 +58,7 @@
 (define (snd p) (cdr p))
 
 (define (bm-search-full pattern pattern-reversed patlen position text delta1-table)
+  (display text) (newline)
   (if (null? text)
       '() (let ([char	  (list-get text (- patlen 1))]
 		[mismatch (first-mismatch pattern-reversed (reverse (sublist text 0 patlen)))])
@@ -67,12 +68,13 @@
 		;; Now we have a problem, we found some matches but not the whole string did.
 		;; So now, if there is a match of the new char where we mismatched at, work from there.
 		(let ([char-occurrence (hash-table-ref/default delta1-table (snd mismatch) 0)])
-		  (if (> char-occurrence (- (- patlen (fst mismatch)) 1))
+		  (display char-occurrence) (newline)
+		  (if (> char-occurrence (- patlen (fst mismatch)))
 		      ;; The rightmost occurrence is to the right of our mismatch, this would
 		      ;; be a useless shift 'backwards', so we safely move forward 1
 		      (bm-search-full pattern pattern-reversed patlen (+ position 1) (cdr text) delta1-table)
 		      ;; Otherwise, we can safely shift up to that next character occurrence
-		      (let ([shift (- (- patlen char-occurrence) 1)])
+		      (let ([shift (- patlen char-occurrence)])
 			(bm-search-full pattern pattern-reversed patlen	(+ position shift) (sublist-from text shift) delta1-table))))))))
 
 (define (bm-search pattern-str text-str)
